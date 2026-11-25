@@ -615,7 +615,7 @@ function list(arr,path,key){var box=el('div','lst');box.appendChild(el('p','lst-
  box.appendChild(btn('+ Aggiungi',function(){arr.push(JSON.parse(SH[path.join('.')]||'{"title":"","text":""}'));touch();buildEd()}));
  return box}
 function buildEd(){var b=$('ed-body'),y=b.scrollTop;b.textContent='';
- if(!art){var gw=el('div','fld gh'),gl=el('label',null,'Token GitHub (resta solo su questo dispositivo)');gl.htmlFor='gh-tok';var gi=el('input');gi.type='password';gi.id='gh-tok';gi.autocomplete='off';gi.value=ghTok();gi.addEventListener('change',function(){try{if(gi.value.trim())localStorage.setItem('smc_gh',gi.value.trim());else localStorage.removeItem('smc_gh')}catch(e){}say(gi.value.trim()?'Token memorizzato su questo dispositivo.':'Token rimosso.')});gw.appendChild(gl);gw.appendChild(gi);b.appendChild(gw)}
+ if(!art)b.appendChild(el('p','hint','Qui le modifiche non si salvano online: «Scarica sito aggiornato» crea il file index.html con le modifiche, da caricare su GitHub o da mandare a Claude.'));
  b.appendChild(el('p','hint','Nei titoli, le parole tra asterischi (*così*) appaiono in corsivo colorato. Nella sezione Trattamenti, le prime quattro schede compaiono in home: riordinale con Su e Giù.'));
  Object.keys(D).forEach(function(k){var d=el('details'),s=el('summary',null,L[k]||k),box=el('div','sec');d.open=!!openSet[k];d.addEventListener('toggle',function(){openSet[k]=d.open});d.appendChild(s);group(D[k],[k],box);d.appendChild(box);b.appendChild(d)});
  b.scrollTop=y}
@@ -629,16 +629,9 @@ function tryPw(ev){ev.preventDefault();var v=$('lock-pw').value.trim();
 function buildDoc(){var hs=document.head.querySelector('style'),reset=hs&&/safe-area/.test(hs.textContent)?hs.textContent:':root{color-scheme:light;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}';
  var json=JSON.stringify(D).replace(/</g,'\\u003c'),S='scr'+'ipt';
  return '<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>'+reset+'</style></head><body><title>Studio Medici Chiasso</title>\n<meta name="claude:viewport-fit-sides" content="cover">\n<link rel="stylesheet" href="'+FONT+'">\n<style id="css">'+$('css').textContent+'</style>\n<div id="site"></div>\n<'+S+' type="application/json" id="data">'+json+'</'+S+'>\n<'+S+' id="js">'+$('js').textContent+'</'+S+'>\n</body></html>'}
-var GH={owner:'paulkappa',repo:'studio-medici-chiasso',path:'index.html',branch:'main'};
-function ghTok(){try{return localStorage.getItem('smc_gh')||''}catch(e){return ''}}
-function b64(str){var u=new TextEncoder().encode(str),s='',i;for(i=0;i<u.length;i+=32768)s+=String.fromCharCode.apply(null,u.subarray(i,i+32768));return btoa(s)}
-function ghSave(){var t=ghTok(),b=$('ed-save');if(!t){say('Inserisci prima il token GitHub qui sopra.');var f=$('gh-tok');if(f)f.focus();return}
- b.disabled=true;say('Salvataggio in corso…');var api='https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+GH.path,h={'Authorization':'Bearer '+t,'Accept':'application/vnd.github+json'};
- fetch(api+'?ref='+GH.branch+'&t='+Date.now(),{headers:h,cache:'no-store'}).then(function(r){if(!r.ok)throw r.status;return r.json()}).then(function(j){
-  return fetch(api,{method:'PUT',headers:h,body:JSON.stringify({message:'Aggiornamento contenuti dal sito',content:b64(buildDoc()),sha:j.sha,branch:GH.branch})})}).then(function(r){if(!r.ok)throw r.status;
-  saved=JSON.stringify(D);b.disabled=false;say('Salvato. Il sito pubblico si aggiorna entro 1–2 minuti.')}).catch(function(e){b.disabled=false;
-  say(e===401?'Token non valido o scaduto: creane uno nuovo.':e===403||e===404?'Il token non ha il permesso di scrivere nel repository studio-medici-chiasso.':e===409?'Il file è cambiato nel frattempo: ricarica la pagina e riprova.':'Salvataggio non riuscito. Controlla la connessione e riprova.')})}
-function save(){if(!art){ghSave();return}var b=$('ed-save');b.disabled=true;say('Salvataggio in corso…');try{sessionStorage.setItem('ed','1')}catch(e){}
+function fileSave(){var blob=new Blob([buildDoc()],{type:'text/html'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='index.html';document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(u);a.remove()},4000);
+ saved=JSON.stringify(D);say('File index.html scaricato: caricalo su GitHub (Add file → Upload files) o mandalo a Claude per pubblicarlo.')}
+function save(){if(!art){fileSave();return}var b=$('ed-save');b.disabled=true;say('Salvataggio in corso…');try{sessionStorage.setItem('ed','1')}catch(e){}
  art.publish(buildDoc()).then(function(){saved=JSON.stringify(D);say('Salvato e pubblicato')},function(e){b.disabled=false;var c=e&&e.code;
   say(c==='conflict'?'Qualcun altro ha appena salvato: la pagina si aggiorna alla sua versione.':c==='not_writer'||c==='not_granted'||c==='capability_disabled'||c==='not_declared'?'Da qui non puoi salvare: serve il permesso di modifica.':c==='too_large'?'Pagina troppo pesante: togli o riduci qualche foto.':c==='rate_limited'?'Troppi salvataggi ravvicinati: riprova tra poco.':'Salvataggio non riuscito. Riprova.')})}
 function shell(){
@@ -694,7 +687,7 @@ site.addEventListener('submit',function(e){if(e.target.id==='bform'){e.preventDe
 window.addEventListener('hashchange',route);
 route();
 shapes(D,'');shell();
-if(!(window.claude&&window.claude.use)){var wantAdm=/^#admin$/.test(location.hash),hasTok=!!ghTok();if(wantAdm||hasTok){CANED=true;render();try{unlocked=sessionStorage.getItem('edok')==='1'}catch(e){}if(wantAdm){history.replaceState(null,'',location.pathname+location.search);ask()}}}
+if(!(window.claude&&window.claude.use)&&/^#admin$/.test(location.hash)){CANED=true;render();try{unlocked=sessionStorage.getItem('edok')==='1'}catch(e){}history.replaceState(null,'',location.pathname+location.search);ask();var sv=$('ed-save');if(sv)sv.textContent='Scarica sito aggiornato'}
 var c=window.claude;
 if(c&&c.use)c.use('artifact').then(function(a){if(!a)return;art=a;return c.use('user').then(function(u){return u?u.canEdit():true}).then(function(ok){if(!ok)return;CANED=true;render();var re=false;try{unlocked=sessionStorage.getItem('edok')==='1';re=sessionStorage.getItem('ed')==='1';sessionStorage.removeItem('ed')}catch(e){}if(re&&unlocked){openEd();say('Salvato e pubblicato')}})}).catch(function(){});
 })();
